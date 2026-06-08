@@ -16,7 +16,8 @@
     <template v-else>
       <!-- 邀请码（创建者显示） -->
       <div v-if="roomStore.isHost" class="invite-section">
-        <p class="invite-label">邀请好友输入</p>
+        <p class="invite-label">邀请好友</p>
+        <QRCode :text="joinUrl" />
         <div class="invite-code" @click="copyCode">
           <span class="code-text">{{ roomStore.roomId }}</span>
           <span class="copy-hint">{{ copied ? '已复制' : '点击复制' }}</span>
@@ -114,6 +115,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoomStore } from '../stores/room.js'
 import { disconnectSocket } from '../utils/socket.js'
+import QRCode from '../components/QRCode.vue'
 
 const router = useRouter()
 const roomStore = useRoomStore()
@@ -126,6 +128,11 @@ const emptySlots = computed(() => {
   const total = roomStore.config.playerCount || 0
   const current = roomStore.players.length
   return Math.max(0, total - current)
+})
+
+const joinUrl = computed(() => {
+  const origin = window.location.origin
+  return `${origin}/join?room=${roomStore.roomId}`
 })
 
 async function copyCode() {

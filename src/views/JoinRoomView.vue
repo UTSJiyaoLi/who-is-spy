@@ -12,6 +12,7 @@
           placeholder="输入4位邀请码"
           maxlength="4"
           style="text-transform: uppercase; font-size: 24px; letter-spacing: 8px; text-align: center;"
+          :disabled="!!route.query.room"
         >
       </div>
 
@@ -33,12 +34,13 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useRoomStore } from '../stores/room.js'
 import { connectSocket } from '../utils/socket.js'
 
 const router = useRouter()
+const route = useRoute()
 const roomStore = useRoomStore()
 
 const roomCode = ref('')
@@ -48,6 +50,13 @@ const error = ref('')
 
 const canJoin = computed(() => {
   return roomCode.value.trim().length === 4 && playerName.value.trim().length > 0
+})
+
+onMounted(() => {
+  const roomFromQuery = route.query.room
+  if (roomFromQuery) {
+    roomCode.value = String(roomFromQuery).toUpperCase()
+  }
 })
 
 async function joinRoom() {
