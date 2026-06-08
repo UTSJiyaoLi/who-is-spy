@@ -3,11 +3,12 @@ import HomeView from '../views/HomeView.vue'
 
 const routes = [
   { path: '/', name: 'home', component: HomeView },
-  { path: '/setup', name: 'setup', component: () => import('../views/SetupView.vue') },
+  { path: '/create', name: 'create', component: () => import('../views/CreateRoomView.vue') },
+  { path: '/join', name: 'join', component: () => import('../views/JoinRoomView.vue') },
+  { path: '/room', name: 'room', component: () => import('../views/RoomView.vue') },
   { path: '/identity', name: 'identity', component: () => import('../views/IdentityView.vue') },
   { path: '/judge', name: 'judge', component: () => import('../views/JudgeView.vue') },
   { path: '/game', name: 'game', component: () => import('../views/GameView.vue') },
-  { path: '/words', name: 'words', component: () => import('../views/WordsView.vue') },
   { path: '/history', name: 'history', component: () => import('../views/HistoryView.vue') }
 ]
 

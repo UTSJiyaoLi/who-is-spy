@@ -1,219 +1,136 @@
 <template>
   <div class="page">
-    <!-- 密码验证 -->
-    <div v-if="!verified" class="verify-section">
-      <div class="verify-icon">
-        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-          <path d="M7 11V7a5 5 0 0110 0v4"/>
-        </svg>
-      </div>
-      <h2 class="verify-title">裁判验证</h2>
-      <p class="verify-desc">请输入裁判密码查看身份</p>
-      <input 
-        type="password" 
-        class="input" 
-        v-model="inputPassword" 
-        maxlength="4"
-        placeholder="输入4位密码"
-        inputmode="numeric"
-        @keyup.enter="verify"
-      >
-      <p v-if="errorMsg" class="error-text">{{ errorMsg }}</p>
-      <button class="btn btn-primary" @click="verify" style="margin-top: 16px;">
-        验证
+    <div v-if="!roomStore.isHost" class="empty-state">
+      <p>只有裁判可以查看此页面</p>
+      <button class="btn btn-primary" @click="$router.push('/room')" style="margin-top: 16px;">
+        返回房间
       </button>
     </div>
 
-    <!-- 裁判面板 -->
-    <div v-else class="judge-panel">
+    <template v-else>
       <div class="panel-header">
         <div class="word-info">
           <div class="word-box">
             <span class="word-label">平民词</span>
-            <span class="word-value civilian-word">{{ store.wordPair?.civilian }}</span>
+            <span class="word-value civilian-word">{{ roomStore.wordPair?.civilian }}</span>
           </div>
           <div class="word-box">
             <span class="word-label">卧底词</span>
-            <span class="word-value spy-word">{{ store.wordPair?.spy }}</span>
+            <span class="word-value spy-word">{{ roomStore.wordPair?.spy }}</span>
           </div>
         </div>
       </div>
 
-      <div class="section-title">玩家身份</div>
+      <div class="section-title">玩家身份（{{ roomStore.livingPlayers.length }}人存活）</div>
       <div class="players-grid">
         <div 
-          v-for="player in store.players" 
+          v-for="player in roomStore.judgeInfo || []" 
           :key="player.id"
           class="player-card"
           :class="{ eliminated: player.isEliminated }"
         >
           <div class="player-header">
-            <span class="player-num">{{ player.number }}号</span>
+            <div class="player-info">
+              <span class="player-num">{{ player.id }}号</span>
+              <span class="player-name-sm">{{ player.name }}</span>
+            </div>
             <span class="role-tag" :class="`tag-${player.role}`">
-              {{ roleNames[player.role] }}
+              {{ roomStore.getRoleName(player.role) }}
             </span>
           </div>
           <div class="player-word">{{ player.word }}</div>
-          <button 
-            v-if="!player.isEliminated && player.role !== 'judge'"
-            class="eliminate-btn"
-            @click="eliminate(player.id)"
-          >
-            出局
-          </button>
-          <button 
-            v-else-if="player.isEliminated"
-            class="revive-btn"
-            @click="revive(player.id)"
-          >
-            复活
-          </button>
-          <div v-else class="status-badge judge-badge">裁判</div>
+          <div class="player-actions">
+            <button 
+              v-if="!player.isEliminated"
+              class="eliminate-btn"
+              @click="eliminate(player.id)"
+            >
+              标记出局
+            </button>
+            <button 
+              v-else
+              class="revive-btn"
+              @click="revive(player.id)"
+            >
+              复活
+            </button>
+          </div>
         </div>
       </div>
 
-      <div class="section-title">游戏状态</div>
-      <div class="status-card">
-        <div class="status-row">
-          <span>存活平民</span>
-          <span class="status-value civilian-color">{{ store.livingCivilians.length }}</span>
-        </div>
-        <div class="status-row">
-          <span>存活卧底</span>
-          <span class="status-value spy-color">{{ store.livingSpies.length }}</span>
-        </div>
-        <div class="status-row">
-          <span>已出局</span>
-          <span class="status-value">{{ store.eliminatedPlayers.length }}</span>
-        </div>
-        <div class="status-row" v-if="winner">
-          <span>获胜方</span>
-          <span class="status-value" :class="winner === 'civilian' ? 'civilian-color' : 'spy-color'">
-            {{ winner === 'civilian' ? '平民' : '卧底' }}
-          </span>
-        </div>
+      <div class="section-title">快捷操作</div>
+      <div class="quick-actions">
+        <button class="btn btn-secondary" @click="$router.push('/game')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+            <circle cx="12" cy="12" r="10"/>
+            <polyline points="12 6 12 12 16 14"/>
+          </svg>
+          游戏工具
+        </button>
+        <button v-if="roomStore.phase === 'ended'" class="btn btn-primary" @click="restart">
+          再来一局
+        </button>
       </div>
 
-      <div class="judge-actions">
-        <button class="btn btn-primary" @click="$router.push('/game')">
-          返回游戏工具
-        </button>
-        <button v-if="winner" class="btn btn-success" @click="endGame">
-          结束游戏
-        </button>
+      <div v-if="roomStore.gameWinner" class="winner-banner" :class="roomStore.gameWinner">
+        <span v-if="roomStore.gameWinner === 'civilian'">🎉 平民获胜！</span>
+        <span v-else>🎉 卧底获胜！</span>
       </div>
-    </div>
+    </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useGameStore } from '../stores/game.js'
+import { useRoomStore } from '../stores/room.js'
 
 const router = useRouter()
-const store = useGameStore()
+const roomStore = useRoomStore()
 
-const verified = ref(false)
-const inputPassword = ref('')
-const errorMsg = ref('')
-
-const roleNames = {
-  civilian: '平民',
-  spy: '卧底',
-  blank: '白板',
-  judge: '裁判'
+async function eliminate(playerId) {
+  await roomStore.eliminatePlayer(playerId)
 }
 
-const winner = computed(() => store.checkWinner())
-
-function verify() {
-  if (inputPassword.value === store.judgePassword) {
-    verified.value = true
-    errorMsg.value = ''
-  } else {
-    errorMsg.value = '密码错误'
-  }
+async function revive(playerId) {
+  await roomStore.revivePlayer(playerId)
 }
 
-function eliminate(playerId) {
-  store.eliminatePlayer(playerId)
-}
-
-function revive(playerId) {
-  store.revivePlayer(playerId)
-}
-
-function endGame() {
-  store.endGame()
-  router.push('/')
+async function restart() {
+  await roomStore.restartGame()
+  router.push('/room')
 }
 </script>
 
 <style scoped>
-.verify-section {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  padding: 32px 0;
-  text-align: center;
-}
-
-.verify-icon {
-  color: var(--accent-secondary);
-  margin-bottom: 20px;
-}
-
-.verify-title {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.verify-desc {
-  font-size: 15px;
-  color: var(--text-secondary);
-  margin-bottom: 24px;
-}
-
-.error-text {
-  color: var(--danger);
-  font-size: 14px;
-  margin-top: 8px;
-}
-
 .panel-header {
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .word-info {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 10px;
 }
 
 .word-box {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 14px;
   text-align: center;
 }
 
 .word-label {
   display: block;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-muted);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .word-value {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 700;
 }
 
@@ -229,14 +146,14 @@ function endGame() {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 10px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .player-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px;
+  padding: 12px;
   transition: all 0.2s;
 }
 
@@ -248,14 +165,25 @@ function endGame() {
 .player-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-bottom: 8px;
+}
+
+.player-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .player-num {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text-primary);
+}
+
+.player-name-sm {
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .role-tag {
@@ -263,12 +191,12 @@ function endGame() {
   border-radius: 10px;
   font-size: 11px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .tag-civilian { background: rgba(59, 130, 246, 0.15); color: var(--civilian); }
 .tag-spy { background: rgba(239, 68, 68, 0.15); color: var(--spy); }
 .tag-blank { background: rgba(245, 158, 11, 0.15); color: var(--blank); }
-.tag-judge { background: rgba(16, 185, 129, 0.15); color: var(--judge); }
 
 .player-word {
   font-size: 18px;
@@ -277,12 +205,17 @@ function endGame() {
   margin-bottom: 10px;
 }
 
+.player-actions {
+  display: flex;
+  gap: 6px;
+}
+
 .eliminate-btn, .revive-btn {
-  width: 100%;
+  flex: 1;
   padding: 8px;
   border-radius: var(--radius-sm);
   border: none;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
@@ -297,44 +230,28 @@ function endGame() {
   color: var(--success);
 }
 
-.status-badge {
-  text-align: center;
-  padding: 8px;
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.status-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  margin-bottom: 24px;
-}
-
-.status-row {
+.quick-actions {
   display: flex;
-  justify-content: space-between;
-  padding: 10px 0;
-  font-size: 15px;
-  border-bottom: 1px solid var(--border);
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
 }
 
-.status-row:last-child {
-  border-bottom: none;
-}
-
-.status-value {
+.winner-banner {
+  text-align: center;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  font-size: 18px;
   font-weight: 700;
 }
 
-.civilian-color { color: var(--civilian); }
-.spy-color { color: var(--spy); }
+.winner-banner.civilian {
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--civilian);
+}
 
-.judge-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: var(--spacing-lg);
+.winner-banner.spy {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--spy);
 }
 </style>

@@ -18,52 +18,35 @@
         </svg>
       </div>
       <h1 class="hero-title">谁是卧底</h1>
-      <p class="hero-subtitle">聚会游戏必备助手</p>
+      <p class="hero-subtitle">多人联机版 · 聚会游戏助手</p>
     </div>
 
-    <div class="menu-grid">
-      <button class="menu-card menu-primary" @click="startNewGame">
-        <div class="menu-icon">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <polygon points="5 3 19 12 5 21 5 3"/>
-          </svg>
-        </div>
-        <span class="menu-label">开始游戏</span>
-        <span class="menu-desc">快速配置，马上开局</span>
+    <div class="action-buttons">
+      <button class="btn btn-primary menu-btn" @click="$router.push('/create')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="12" y1="8" x2="12" y2="16"/>
+          <line x1="8" y1="12" x2="16" y2="12"/>
+        </svg>
+        创建房间
       </button>
 
-      <button class="menu-card" @click="$router.push('/words')">
-        <div class="menu-icon menu-icon-secondary">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-            <polyline points="14 2 14 8 20 8"/>
-          </svg>
-        </div>
-        <span class="menu-label">词库管理</span>
-        <span class="menu-desc">管理游戏词语</span>
+      <button class="btn btn-secondary menu-btn" @click="$router.push('/join')">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/>
+          <polyline points="10 17 15 12 10 7"/>
+          <line x1="15" y1="12" x2="3" y2="12"/>
+        </svg>
+        加入房间
       </button>
 
-      <button class="menu-card" @click="$router.push('/history')">
-        <div class="menu-icon menu-icon-secondary">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <polyline points="12 6 12 12 16 14"/>
-          </svg>
-        </div>
-        <span class="menu-label">历史记录</span>
-        <span class="menu-desc">查看过往对局</span>
-      </button>
-
-      <button class="menu-card" @click="showRules = true">
-        <div class="menu-icon menu-icon-secondary">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
-            <line x1="12" y1="17" x2="12.01" y2="17"/>
-          </svg>
-        </div>
-        <span class="menu-label">游戏规则</span>
-        <span class="menu-desc">玩法说明</span>
+      <button class="btn btn-secondary menu-btn" @click="showRules = true">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/>
+          <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+        游戏规则
       </button>
     </div>
 
@@ -72,16 +55,23 @@
       <div class="modal-content" @click.stop>
         <h3 class="modal-title">游戏规则</h3>
         <div class="rules-content">
-          <p><strong>1. 身份分配</strong></p>
-          <p>每人获得一个词语，大部分人拿到相同的<strong>平民词</strong>，少数人拿到不同的<strong>卧底词</strong>，还可能存在拿到空白词的<strong>白板</strong>。</p>
+          <p><strong>1. 创建房间</strong></p>
+          <p>一位玩家创建房间成为<strong>裁判</strong>，裁判可以看到所有人的身份，负责主持游戏。</p>
+          <p style="color: var(--accent-secondary); margin-top: 4px;">裁判不计入玩家总数。</p>
           
-          <p><strong>2. 轮流描述</strong></p>
+          <p><strong>2. 邀请加入</strong></p>
+          <p>创建者将 4 位邀请码分享给朋友，其他玩家输入邀请码和昵称加入房间。</p>
+          
+          <p><strong>3. 分配身份</strong></p>
+          <p>裁判点击「开始游戏」后，系统自动分配身份。每位玩家在自己的手机上看到专属身份。</p>
+          
+          <p><strong>4. 轮流描述</strong></p>
           <p>每人轮流用一句话描述自己的词语，不能直接说出词语本身。</p>
           
-          <p><strong>3. 投票淘汰</strong></p>
+          <p><strong>5. 投票淘汰</strong></p>
           <p>每轮描述结束后，大家投票选出最像卧底的人。得票最多者出局。</p>
           
-          <p><strong>4. 胜负判定</strong></p>
+          <p><strong>6. 胜负判定</strong></p>
           <p>卧底全部出局则平民获胜；卧底存活人数≥平民则卧底获胜；白板猜出两个词则白板获胜。</p>
         </div>
         <button class="btn btn-primary" @click="showRules = false">知道了</button>
@@ -92,31 +82,23 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { useGameStore } from '../stores/game.js'
 
-const router = useRouter()
-const store = useGameStore()
 const showRules = ref(false)
-
-function startNewGame() {
-  store.resetGame()
-  router.push('/setup')
-}
 </script>
 
 <style scoped>
 .home-page {
-  padding-top: calc(var(--safe-top) + 32px);
+  justify-content: center;
+  padding-top: calc(var(--safe-top) + 40px);
 }
 
 .hero {
   text-align: center;
-  margin-bottom: 40px;
+  margin-bottom: 48px;
 }
 
 .hero-icon {
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .hero-title {
@@ -133,79 +115,20 @@ function startNewGame() {
   color: var(--text-secondary);
 }
 
-.menu-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.action-buttons {
+  display: flex;
+  flex-direction: column;
   gap: 12px;
   padding: 0 4px;
 }
 
-.menu-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 24px 16px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-  color: inherit;
-}
-
-.menu-card:active {
-  transform: scale(0.96);
-  background: var(--bg-tertiary);
-}
-
-.menu-primary {
-  grid-column: span 2;
-  flex-direction: row;
-  gap: 16px;
-  padding: 28px 24px;
-  background: var(--accent-gradient);
-}
-
-.menu-primary .menu-icon {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.menu-primary .menu-label {
-  color: white;
-  font-size: 20px;
-}
-
-.menu-primary .menu-desc {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.menu-icon {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
+.menu-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
-  color: var(--accent-secondary);
-}
-
-.menu-icon-secondary {
-  background: rgba(124, 58, 237, 0.1);
-}
-
-.menu-label {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.menu-desc {
-  font-size: 12px;
-  color: var(--text-muted);
+  gap: 10px;
+  padding: 18px 24px;
+  font-size: 17px;
 }
 
 .modal-overlay {
@@ -242,7 +165,7 @@ function startNewGame() {
 }
 
 .rules-content p {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   color: var(--text-secondary);
   font-size: 14px;
 }

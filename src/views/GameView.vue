@@ -1,14 +1,18 @@
 <template>
   <div class="page">
-    <div v-if="store.gamePhase !== 'playing' && store.gamePhase !== 'ended'" class="empty-state">
-      <p>游戏尚未开始</p>
-      <button class="btn btn-primary" @click="$router.push('/setup')" style="margin-top: 16px;">
-        去配置
-      </button>
+    <div v-if="!roomStore.roomId" class="empty-state">
+      <p>未加入房间</p>
+      <button class="btn btn-primary" @click="$router.push('/')" style="margin-top: 16px;">返回首页</button>
     </div>
 
     <template v-else>
-      <!-- 标签页切换 -->
+      <div class="room-badge-bar">
+        <span class="room-badge">房间 {{ roomStore.roomId }}</span>
+        <span v-if="roomStore.isHost" class="role-badge-sm judge">裁判</span>
+        <span v-else class="role-badge-sm">{{ roomStore.playerId }}号</span>
+      </div>
+
+      <!-- 标签页 -->
       <div class="tabs">
         <button 
           v-for="tab in tabs" 
@@ -24,9 +28,12 @@
       <!-- 发言顺序 -->
       <div v-if="currentTab === 'order'" class="tab-content">
         <div class="section-title">发言顺序</div>
-        <div class="order-list">
+        <div v-if="roomStore.speakingOrder.length === 0" class="empty-state">
+          <p>游戏未开始</p>
+        </div>
+        <div v-else class="order-list">
           <div 
-            v-for="(playerId, index) in store.speakingOrder" 
+            v-for="(playerId, index) in roomStore.speakingOrder" 
             :key="playerId"
             class="order-item"
             :class="{ eliminated: isEliminated(playerId) }"
@@ -36,11 +43,7 @@
             <span v-if="isEliminated(playerId)" class="eliminated-mark">已出局</span>
           </div>
         </div>
-        <button class="btn btn-secondary" @click="reshuffleOrder" style="margin-top: 16px;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-            <polyline points="23 4 23 10 17 10"/>
-            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
-          </svg>
+        <button v-if="roomStore.isHost && roomStore.phase === 'playing'" class="btn btn-secondary" @click="reshuffleOrder" style="margin-top: 12px;">
           重新排序
         </button>
       </div>
@@ -67,26 +70,11 @@
 
         <div class="timer-controls">
           <button v-if="!isRunning" class="btn btn-primary" @click="startTimer">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-              <polygon points="5 3 19 12 5 21 5 3"/>
-            </svg>
             开始
           </button>
           <template v-else>
-            <button class="btn btn-secondary" @click="pauseTimer">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-                <rect x="6" y="4" width="4" height="16"/>
-                <rect x="14" y="4" width="4" height="16"/>
-              </svg>
-              暂停
-            </button>
-            <button class="btn btn-danger" @click="resetTimer">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-                <polyline points="1 4 1 10 7 10"/>
-                <path d="M3.51 15a9 9 0 102.13-9.36L1 10"/>
-              </svg>
-              重置
-            </button>
+            <button class="btn btn-secondary" @click="pauseTimer">暂停</button>
+            <button class="btn btn-danger" @click="resetTimer">重置</button>
           </template>
         </div>
       </div>
@@ -98,13 +86,14 @@
         
         <div class="vote-players">
           <div 
-            v-for="player in votablePlayers" 
+            v-for="player in roomStore.players" 
             :key="player.id"
             class="vote-player-card"
             :class="{ eliminated: player.isEliminated }"
           >
             <div class="vote-player-info">
-              <span class="vote-num">{{ player.number }}号</span>
+              <span class="vote-num">{{ player.id }}号</span>
+              <span class="vote-name">{{ player.name }}</span>
               <span v-if="player.isEliminated" class="vote-status-badge">已出局</span>
             </div>
             <div v-if="!player.isEliminated" class="vote-counter">
@@ -127,21 +116,18 @@
           <button class="btn btn-danger" @click="confirmRoundVote" :disabled="!hasVotes">确认投票</button>
         </div>
 
-        <div v-if="store.voteRecords.length > 0" class="vote-history">
+        <div v-if="roomStore.voteRecords.length > 0" class="vote-history">
           <div class="section-title">投票记录</div>
-          <div v-for="(record, idx) in store.voteRecords.slice().reverse()" :key="idx" class="vote-record">
+          <div v-for="(record, idx) in [...roomStore.voteRecords].reverse()" :key="idx" class="vote-record">
             <span class="record-round">第{{ record.round }}轮</span>
             <span class="record-detail">{{ formatVote(record.votes) }}</span>
           </div>
         </div>
       </div>
 
-      <!-- 快捷入口 -->
-      <div v-if="store.hasJudge" class="judge-quick">
+      <!-- 裁判快捷入口 -->
+      <div v-if="roomStore.isHost" class="judge-quick">
         <button class="btn btn-secondary" @click="$router.push('/judge')">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
           裁判面板
         </button>
       </div>
@@ -152,11 +138,11 @@
 <script setup>
 import { ref, computed, onUnmounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
-import { useGameStore } from '../stores/game.js'
+import { useRoomStore } from '../stores/room.js'
 import { shuffleArray } from '../utils/shuffle.js'
 
 const router = useRouter()
-const store = useGameStore()
+const roomStore = useRoomStore()
 
 const currentTab = ref('order')
 const tabs = [
@@ -166,8 +152,8 @@ const tabs = [
 ]
 
 // 计时器
-const timerDuration = ref(store.timerSeconds)
-const remainingTime = ref(store.timerSeconds)
+const timerDuration = ref(60)
+const remainingTime = ref(60)
 const isRunning = ref(false)
 let timerInterval = null
 
@@ -175,15 +161,9 @@ let timerInterval = null
 const currentVotes = reactive({})
 const voteRound = ref(1)
 
-const votablePlayers = computed(() => store.players)
+const hasVotes = computed(() => Object.values(currentVotes).some(v => v > 0))
 
-const hasVotes = computed(() => {
-  return Object.values(currentVotes).some(v => v > 0)
-})
-
-const maxVoteCount = computed(() => {
-  return Math.max(0, ...Object.values(currentVotes))
-})
+const maxVoteCount = computed(() => Math.max(0, ...Object.values(currentVotes)))
 
 const maxVotePlayer = computed(() => {
   const entries = Object.entries(currentVotes)
@@ -192,13 +172,14 @@ const maxVotePlayer = computed(() => {
   return max[0]
 })
 
-function isEliminated(playerId) {
-  return store.eliminatedPlayers.includes(playerId)
+function isEliminated(pid) {
+  return roomStore.eliminatedPlayers.includes(Number(pid))
 }
 
 function reshuffleOrder() {
-  const playablePlayers = store.players.filter(p => p.role !== 'judge' && !p.isEliminated).map(p => p.id)
-  store.speakingOrder = shuffleArray(playablePlayers)
+  const living = roomStore.players.filter(p => !p.isEliminated).map(p => p.id)
+  const order = shuffleArray(living)
+  roomStore.updateSpeakingOrder(order)
 }
 
 function formatTime(seconds) {
@@ -236,26 +217,27 @@ function resetTimer() {
   remainingTime.value = timerDuration.value
 }
 
-function incrementVote(playerId) {
-  currentVotes[playerId] = (currentVotes[playerId] || 0) + 1
+function incrementVote(pid) {
+  currentVotes[pid] = (currentVotes[pid] || 0) + 1
 }
 
-function decrementVote(playerId) {
-  if (currentVotes[playerId] > 0) {
-    currentVotes[playerId]--
-  }
+function decrementVote(pid) {
+  if (currentVotes[pid] > 0) currentVotes[pid]--
 }
 
 function resetVotes() {
   Object.keys(currentVotes).forEach(k => delete currentVotes[k])
 }
 
-function confirmRoundVote() {
+async function confirmRoundVote() {
   if (!maxVotePlayer.value) return
-  
   const votes = { ...currentVotes }
-  store.eliminatePlayer(Number(maxVotePlayer.value))
-  store.addVoteRecord(voteRound.value, votes)
+  await roomStore.submitVote(voteRound.value, votes)
+  
+  if (roomStore.isHost) {
+    await roomStore.eliminatePlayer(Number(maxVotePlayer.value))
+  }
+  
   voteRound.value++
   resetVotes()
 }
@@ -267,16 +249,44 @@ function formatVote(votes) {
   return sorted.map(([id, count]) => `${id}号:${count}票`).join(' ')
 }
 
-onUnmounted(() => {
-  clearInterval(timerInterval)
-})
+onUnmounted(() => clearInterval(timerInterval))
 </script>
 
 <style scoped>
+.room-badge-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.room-badge {
+  padding: 4px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.role-badge-sm {
+  padding: 4px 12px;
+  border-radius: 16px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+}
+
+.role-badge-sm.judge {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--judge);
+}
+
 .tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 20px;
+  margin-bottom: 16px;
   background: var(--bg-card);
   border-radius: var(--radius-md);
   padding: 4px;
@@ -292,16 +302,11 @@ onUnmounted(() => {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .tab-btn.active {
   background: var(--accent-primary);
   color: white;
-}
-
-.tab-content {
-  flex: 1;
 }
 
 .order-list {
@@ -340,7 +345,6 @@ onUnmounted(() => {
 .order-player {
   flex: 1;
   font-size: 16px;
-  font-weight: 500;
 }
 
 .eliminated-mark {
@@ -354,12 +358,12 @@ onUnmounted(() => {
 .timer-display {
   display: flex;
   justify-content: center;
-  margin: 32px 0;
+  margin: 24px 0;
 }
 
 .timer-circle {
-  width: 200px;
-  height: 200px;
+  width: 180px;
+  height: 180px;
   border-radius: 50%;
   border: 4px solid var(--border);
   display: flex;
@@ -368,27 +372,20 @@ onUnmounted(() => {
   transition: all 0.3s;
 }
 
-.timer-circle.running {
-  border-color: var(--accent-primary);
-}
-
-.timer-circle.warning {
-  border-color: var(--danger);
-  animation: pulse 1s infinite;
-}
+.timer-circle.running { border-color: var(--accent-primary); }
+.timer-circle.warning { border-color: var(--danger); animation: pulse 1s infinite; }
 
 .timer-value {
-  font-size: 48px;
+  font-size: 44px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  color: var(--text-primary);
 }
 
 .timer-presets {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 20px;
 }
 
 .preset-btn {
@@ -398,14 +395,12 @@ onUnmounted(() => {
   background: var(--bg-tertiary);
   color: var(--text-secondary);
   font-size: 14px;
-  font-weight: 500;
   cursor: pointer;
 }
 
 .preset-btn.active {
   background: var(--accent-primary);
   color: white;
-  border-color: var(--accent-primary);
 }
 
 .timer-controls {
@@ -413,36 +408,32 @@ onUnmounted(() => {
   gap: 12px;
 }
 
-.timer-controls .btn {
-  flex: 1;
-}
+.timer-controls .btn { flex: 1; }
 
 .vote-hint {
   font-size: 14px;
   color: var(--text-muted);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .vote-players {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .vote-player-card {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 16px;
+  padding: 12px 14px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
 }
 
-.vote-player-card.eliminated {
-  opacity: 0.4;
-}
+.vote-player-card.eliminated { opacity: 0.4; }
 
 .vote-player-info {
   display: flex;
@@ -450,10 +441,8 @@ onUnmounted(() => {
   gap: 8px;
 }
 
-.vote-num {
-  font-size: 16px;
-  font-weight: 600;
-}
+.vote-num { font-size: 15px; font-weight: 700; }
+.vote-name { font-size: 13px; color: var(--text-muted); }
 
 .vote-status-badge {
   font-size: 11px;
@@ -466,31 +455,27 @@ onUnmounted(() => {
 .vote-counter {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
 }
 
 .counter-btn {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--bg-tertiary);
   color: var(--text-primary);
-  font-size: 18px;
+  font-size: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
 }
 
-.counter-btn:active {
-  background: var(--accent-primary);
-}
-
 .counter-value {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
-  min-width: 24px;
+  min-width: 20px;
   text-align: center;
 }
 
@@ -498,58 +483,40 @@ onUnmounted(() => {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 14px 16px;
-  margin-bottom: 16px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
 }
 
 .summary-line {
   display: flex;
   justify-content: space-between;
-  align-items: center;
   font-size: 15px;
 }
 
-.summary-highlight {
-  font-weight: 700;
-  color: var(--danger);
-}
+.summary-highlight { font-weight: 700; color: var(--danger); }
 
 .vote-actions-row {
   display: flex;
   gap: 12px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
-.vote-actions-row .btn {
-  flex: 1;
-}
-
-.vote-history {
-  margin-top: 8px;
-}
+.vote-actions-row .btn { flex: 1; }
 
 .vote-record {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  padding: 12px 0;
+  padding: 10px 0;
   border-bottom: 1px solid var(--border);
   font-size: 14px;
 }
 
-.record-round {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.record-detail {
-  color: var(--text-muted);
-  font-size: 13px;
-}
+.record-round { color: var(--text-secondary); }
+.record-detail { color: var(--text-muted); font-size: 13px; }
 
 .judge-quick {
   margin-top: auto;
-  padding-top: 20px;
+  padding-top: 16px;
   padding-bottom: var(--spacing-lg);
 }
 </style>
