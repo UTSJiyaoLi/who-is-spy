@@ -9,8 +9,7 @@
     "preview": "vite preview",
     "server": "node server/index.js",
     "server:dev": "cd server && npm run dev",
-    "render:build": "npm install && cd server && npm install && cd .. && npm run build",
-    "render:start": "npm run server"
+    "start": "node server/index.js"
   },
   "dependencies": {
     "qrcode": "^1.5.4",
