@@ -37,37 +37,92 @@
         </div>
       </div>
 
-      <div class="switch-row">
-        <span class="switch-label">启用白板</span>
-        <label class="switch">
-          <input type="checkbox" v-model="config.hasBlank">
-          <span class="slider"></span>
-        </label>
+      <div class="form-group">
+        <label class="form-label">白板人数</label>
+        <div class="stepper">
+          <button class="stepper-btn" @click="config.blankCount = Math.max(0, config.blankCount - 1)">−</button>
+          <span class="stepper-value">{{ config.blankCount }}人</span>
+          <button class="stepper-btn" @click="config.blankCount = Math.min(maxBlanks, config.blankCount + 1)">+</button>
+        </div>
       </div>
       <p class="switch-hint">白板没有词语，需猜出两个词才能获胜</p>
 
       <div class="divider"></div>
 
+      <!-- 词语选择 -->
       <div class="form-group">
-        <label class="form-label">词库分类</label>
-        <select class="select" v-model="config.selectedCategory">
-          <option value="">全部随机</option>
-          <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
-        </select>
+        <label class="form-label">词语来源</label>
+        <div class="word-source-options">
+          <button 
+            class="source-btn"
+            :class="{ active: wordSource === 'random' }"
+            @click="wordSource = 'random'"
+          >
+            随机词库
+          </button>
+          <button 
+            class="source-btn"
+            :class="{ active: wordSource === 'custom' }"
+            @click="wordSource = 'custom'"
+          >
+            自定义词语
+          </button>
+        </div>
       </div>
 
-      <div class="word-preview" v-if="previewPair">
-        <div class="word-tag civilian-tag">{{ previewPair.civilian }}</div>
-        <span class="vs-text">VS</span>
-        <div class="word-tag spy-tag">{{ previewPair.spy }}</div>
-      </div>
-      <button class="refresh-btn" @click="refreshPreview">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="23 4 23 10 17 10"/>
-          <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
-        </svg>
-        换一组
-      </button>
+      <!-- 随机词库 -->
+      <template v-if="wordSource === 'random'">
+        <div class="form-group">
+          <label class="form-label">词库分类</label>
+          <select class="select" v-model="config.selectedCategory">
+            <option value="">全部随机</option>
+            <option v-for="cat in categories" :key="cat" :value="cat">{{ cat }}</option>
+          </select>
+        </div>
+
+        <div class="word-preview" v-if="previewPair">
+          <div class="word-tag civilian-tag">{{ previewPair.civilian }}</div>
+          <span class="vs-text">VS</span>
+          <div class="word-tag spy-tag">{{ previewPair.spy }}</div>
+        </div>
+        <button class="refresh-btn" @click="refreshPreview">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="23 4 23 10 17 10"/>
+            <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/>
+          </svg>
+          换一组
+        </button>
+      </template>
+
+      <!-- 自定义词语 -->
+      <template v-else>
+        <div class="form-group">
+          <label class="form-label">平民词</label>
+          <input 
+            type="text" 
+            class="input" 
+            v-model="customCivilian" 
+            placeholder="例如：火锅"
+            maxlength="10"
+          >
+        </div>
+        <div class="form-group">
+          <label class="form-label">卧底词</label>
+          <input 
+            type="text" 
+            class="input" 
+            v-model="customSpy" 
+            placeholder="例如：烧烤"
+            maxlength="10"
+          >
+        </div>
+        <p v-if="customError" class="error-hint">{{ customError }}</p>
+        <div v-else-if="customCivilian && customSpy" class="word-preview">
+          <div class="word-tag civilian-tag">{{ customCivilian }}</div>
+          <span class="vs-text">VS</span>
+          <div class="word-tag spy-tag">{{ customSpy }}</div>
+        </div>
+      </template>
     </div>
 
     <div class="action-buttons">
@@ -94,18 +149,38 @@ const roomStore = useRoomStore()
 const judgeName = ref('')
 const isLoading = ref(false)
 const error = ref('')
+const wordSource = ref('random')
+const customCivilian = ref('')
+const customSpy = ref('')
 
 const config = ref({
   playerCount: 5,
   spyCount: 1,
-  hasBlank: false,
+  blankCount: 0,
   selectedCategory: '',
-  timerSeconds: 60
+  timerSeconds: 60,
+  customWordPair: null
 })
 
-const maxSpies = computed(() => Math.max(1, Math.floor((config.value.playerCount - (config.value.hasBlank ? 1 : 0)) / 2)))
+const maxSpies = computed(() => Math.max(1, Math.floor((config.value.playerCount - config.value.blankCount) / 2)))
 
-const canCreate = computed(() => judgeName.value.trim().length > 0)
+const maxBlanks = computed(() => Math.max(0, config.value.playerCount - config.value.spyCount - 1))
+
+const canCreate = computed(() => {
+  if (!judgeName.value.trim()) return false
+  if (wordSource.value === 'custom') {
+    return customCivilian.value.trim() && customSpy.value.trim() && customCivilian.value !== customSpy.value
+  }
+  return true
+})
+
+const customError = computed(() => {
+  if (wordSource.value !== 'custom') return ''
+  if (customCivilian.value && customSpy.value && customCivilian.value === customSpy.value) {
+    return '两个词语不能相同'
+  }
+  return ''
+})
 
 const previewPair = ref(getRandomWordPair(config.value.selectedCategory || null))
 
@@ -115,15 +190,24 @@ function refreshPreview() {
 
 async function createRoom() {
   if (!canCreate.value) return
-  
+
   isLoading.value = true
   error.value = ''
-  
+
+  // 设置自定义词语
+  if (wordSource.value === 'custom' && customCivilian.value.trim() && customSpy.value.trim()) {
+    config.value.customWordPair = {
+      civilian: customCivilian.value.trim(),
+      spy: customSpy.value.trim()
+    }
+  } else {
+    config.value.customWordPair = null
+  }
+
   try {
     connectSocket()
-    // 等待连接建立
     await new Promise(r => setTimeout(r, 500))
-    
+
     const res = await roomStore.createRoom(config.value, judgeName.value.trim())
     if (res.success) {
       router.push('/room')
@@ -209,6 +293,30 @@ async function createRoom() {
   margin-bottom: 12px;
 }
 
+.word-source-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.source-btn {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.source-btn.active {
+  background: var(--accent-primary);
+  color: white;
+  border-color: var(--accent-primary);
+}
+
 .word-preview {
   display: flex;
   align-items: center;
@@ -257,6 +365,13 @@ async function createRoom() {
 
 .refresh-btn:active {
   background: var(--bg-tertiary);
+}
+
+.error-hint {
+  font-size: 13px;
+  color: var(--danger);
+  margin-top: -8px;
+  margin-bottom: 8px;
 }
 
 .action-buttons {

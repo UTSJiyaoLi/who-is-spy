@@ -116,10 +116,10 @@ function shuffleArray(array) {
 }
 
 // 分配身份
-function assignRoles(playerCount, spyCount, hasBlank, hasJudge) {
+function assignRoles(playerCount, spyCount, blankCount) {
   const roles = []
   for (let i = 0; i < spyCount; i++) roles.push('spy')
-  if (hasBlank) roles.push('blank')
+  for (let i = 0; i < blankCount; i++) roles.push('blank')
   while (roles.length < playerCount) roles.push('civilian')
   return shuffleArray(roles)
 }
@@ -251,13 +251,21 @@ io.on('connection', (socket) => {
       return
     }
     
-    // 分配词语
-    room.wordPair = getRandomWordPair(room.config.selectedCategory || null)
+    // 分配词语：优先使用自定义词语，否则随机抽取
+    if (room.config.customWordPair && room.config.customWordPair.civilian && room.config.customWordPair.spy) {
+      room.wordPair = { ...room.config.customWordPair, category: '自定义' }
+    } else {
+      room.wordPair = getRandomWordPair(room.config.selectedCategory || null)
+    }
     
     // 分配身份（注意：玩家总数是加入房间的玩家数，裁判不计入）
     const actualPlayerCount = room.players.length
     const actualSpyCount = Math.min(room.config.spyCount, Math.floor(actualPlayerCount / 2))
-    const roles = assignRoles(actualPlayerCount, actualSpyCount, room.config.hasBlank, false)
+    const blankCount = room.config.blankCount || 0
+    // 确保特殊角色总数不超过玩家数
+    const maxSpecial = actualSpyCount + blankCount
+    const actualBlankCount = maxSpecial > actualPlayerCount ? Math.max(0, actualPlayerCount - actualSpyCount) : blankCount
+    const roles = assignRoles(actualPlayerCount, actualSpyCount, actualBlankCount)
     
     room.players.forEach((player, index) => {
       player.role = roles[index]

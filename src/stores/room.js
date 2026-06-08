@@ -252,13 +252,18 @@ export const useRoomStore = defineStore('room', () => {
     return colors[role] || 'var(--text-secondary)'
   }
 
+  // 是否使用自定义词语
+  const isCustomWord = computed(() => {
+    return !!(config.value.customWordPair && config.value.customWordPair.civilian)
+  })
+
   return {
     isConnected, connectionError,
     roomId, isHost, playerId, playerName, phase,
     players, config, wordPair, myIdentity, judgeInfo,
     speakingOrder, eliminatedPlayers, voteRecords, gameWinner,
     confirmedIdentities,
-    isJudge, livingPlayers, canStart,
+    isJudge, livingPlayers, canStart, isCustomWord,
     initSocketListeners,
     createRoom, joinRoom, startGame, confirmIdentity,
     eliminatePlayer, revivePlayer, submitVote,
